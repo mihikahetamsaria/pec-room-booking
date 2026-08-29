@@ -1,0 +1,250 @@
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { PURPOSES, formatRange, todayISO, type Purpose } from "@/lib/campus";
+import { useVenues } from "@/lib/data";
+import {
+  BookingConfirmation,
+  type ConfirmedBooking,
+} from "@/components/BookingConfirmation";
+import {
+  createBookingFn,
+  updateBookingFn,
+  type Conflict,
+} from "@/lib/booking.functions";
+
+export type BookingFormValues = {
+  purpose: Purpose;
+  date: string;
+  start: string;
+  end: string;
+  venueIds: string[];
+};
+
+export function BookingForm({
+  organizationId,
+  bookingId,
+  initial,
+  submitLabel = "Check & Confirm Booking",
+  onSuccess,
+  embedded = false,
+}: {
+  organizationId: string;
+  bookingId?: string;
+  initial?: Partial<BookingFormValues>;
+  submitLabel?: string;
+  onSuccess?: () => void;
+  embedded?: boolean;
+}) {
+  const { data: venues = [] } = useVenues();
+  const queryClient = useQueryClient();
+  const create = useServerFn(createBookingFn);
+  const update = useServerFn(updateBookingFn);
+
+  const [purpose, setPurpose] = useState<Purpose>(initial?.purpose ?? "GBM");
+  const [date, setDate] = useState(initial?.date ?? todayISO());
+  const [start, setStart] = useState(initial?.start ?? "10:00");
+  const [end, setEnd] = useState(initial?.end ?? "12:00");
+  const [venueIds, setVenueIds] = useState<string[]>(initial?.venueIds ?? []);
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmed, setConfirmed] = useState<ConfirmedBooking | null>(null);
+
+
+  function toggleVenue(id: string) {
+    setVenueIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+    );
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setConflicts([]);
+    if (venueIds.length === 0) {
+      toast.error("Select at least one venue.");
+      return;
+    }
+    if (end <= start) {
+      toast.error("End time must be after start time.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const payload = { organizationId, purpose, date, start, end, venueIds };
+      const result = bookingId
+        ? await update({ data: { ...payload, bookingId } })
+        : await create({ data: payload });
+
+      if (!result.ok) {
+        setConflicts(result.conflicts ?? []);
+        toast.error("Booking rejected — venue clash detected.");
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      toast.success(bookingId ? "Booking updated." : "Booking confirmed.");
+      setConfirmed({
+        reference: (result.booking_id ?? bookingId ?? "").slice(0, 8).toUpperCase(),
+        purpose,
+        date,
+        start,
+        end,
+        venues: venues
+          .filter((v) => venueIds.includes(v.id))
+          .map((v) => v.code)
+          .join(", "),
+        updated: Boolean(bookingId),
+      });
+      if (!bookingId) setVenueIds([]);
+      onSuccess?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const form = (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="purpose">Purpose</Label>
+          <Select value={purpose} onValueChange={(v) => setPurpose(v as Purpose)}>
+            <SelectTrigger id="purpose">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PURPOSES.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="date">Date</Label>
+          <Input
+            id="date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="start">Start time</Label>
+          <Input
+            id="start"
+            type="time"
+            step={60}
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="end">End time</Label>
+          <Input
+            id="end"
+            type="time"
+            step={60}
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between">
+          <Label>Venue(s)</Label>
+          <span className="text-xs text-muted-foreground">
+            {venueIds.length} selected
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2 rounded-md border border-border bg-muted/40 p-3">
+          {venues.map((venue) => {
+            const selected = venueIds.includes(venue.id);
+            return (
+              <button
+                type="button"
+                key={venue.id}
+                onClick={() => toggleVenue(venue.id)}
+                aria-pressed={selected}
+                className={cn(
+                  "rounded border px-3 py-1.5 text-sm font-medium transition-colors",
+                  selected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground hover:bg-secondary",
+                )}
+              >
+                {venue.code}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {conflicts.length > 0 ? (
+        <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold text-destructive">
+            <AlertTriangle className="size-4" /> Booking rejected — {conflicts.length}{" "}
+            clash{conflicts.length > 1 ? "es" : ""} found
+          </p>
+          <ul className="space-y-1 text-sm text-destructive">
+            {conflicts.map((c, i) => (
+              <li key={`${c.venue_code}-${i}`}>
+                ⚠️ {c.venue_code} is already booked by {c.org_abbr},{" "}
+                {formatRange(c.start_time, c.end_time)}.
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
+        {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+        {submitLabel}
+      </Button>
+    </form>
+  );
+
+  const confirmation = (
+    <BookingConfirmation booking={confirmed} onClose={() => setConfirmed(null)} />
+  );
+
+  if (embedded)
+    return (
+      <>
+        {form}
+        {confirmation}
+      </>
+    );
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Booking request</CardTitle>
+        </CardHeader>
+        <CardContent>{form}</CardContent>
+      </Card>
+      {confirmation}
+    </>
+  );
+}
