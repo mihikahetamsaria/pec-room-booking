@@ -104,8 +104,67 @@ export function BookingForm({
       toast.error("End time must be after start time.");
       return;
     }
+    const isRange = !bookingId && endDate && endDate > date;
+    if (!bookingId && endDate && endDate < date) {
+      toast.error("End date must be on or after the start date.");
+      return;
+    }
+    const dates = isRange ? datesInRange(date, endDate) : [date];
+    if (dates.length > MAX_RANGE_DAYS) {
+      toast.error(`Date range can span at most ${MAX_RANGE_DAYS} days.`);
+      return;
+    }
     setSubmitting(true);
     try {
+      if (isRange) {
+        // All-or-nothing: check every date for clashes before booking any.
+        const found: DatedConflict[] = [];
+        for (const d of dates) {
+          const { conflicts: dayConflicts } = await checkConflicts({
+            data: { date: d, start, end, venueIds },
+          });
+          found.push(...dayConflicts.map((c) => ({ ...c, date: d })));
+        }
+        if (found.length > 0) {
+          setConflicts(found);
+          toast.error("Range booking rejected — venue clash detected.");
+          return;
+        }
+        let firstId = "";
+        for (const d of dates) {
+          const result = await create({
+            data: { organizationId, purpose, date: d, start, end, venueIds },
+          });
+          if (!result.ok) {
+            setConflicts(
+              (result.conflicts ?? []).map((c) => ({ ...c, date: d })),
+            );
+            toast.error("Range booking rejected — venue clash detected.");
+            return;
+          }
+          if (!firstId) firstId = result.booking_id ?? "";
+        }
+        await queryClient.invalidateQueries({ queryKey: ["bookings"] });
+        toast.success(`${dates.length} bookings confirmed.`);
+        setConfirmed({
+          reference: firstId.slice(0, 8).toUpperCase(),
+          purpose,
+          date,
+          endDate,
+          days: dates.length,
+          start,
+          end,
+          venues: venues
+            .filter((v) => venueIds.includes(v.id))
+            .map((v) => v.code)
+            .join(", "),
+          updated: false,
+        });
+        setVenueIds([]);
+        onSuccess?.();
+        return;
+      }
+
       const payload = { organizationId, purpose, date, start, end, venueIds };
       const result = bookingId
         ? await update({ data: { ...payload, bookingId } })
