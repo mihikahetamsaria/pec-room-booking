@@ -307,8 +307,9 @@ export function BookingForm({
           </p>
           <ul className="space-y-1 text-sm text-destructive">
             {conflicts.map((c, i) => (
-              <li key={`${c.venue_code}-${i}`}>
-                ⚠️ {c.venue_code} is already booked by {c.org_abbr},{" "}
+              <li key={`${c.venue_code}-${c.date ?? ""}-${i}`}>
+                ⚠️ {c.date ? `${formatDate(c.date)}: ` : ""}
+                {c.venue_code} is already booked by {c.org_abbr},{" "}
                 {formatRange(c.start_time, c.end_time)}.
               </li>
             ))}

@@ -52,8 +52,14 @@ export function BookingConfirmation({
               <dd className="col-span-2 font-mono font-medium">#{booking.reference}</dd>
               <dt className="text-muted-foreground">Venue(s)</dt>
               <dd className="col-span-2 font-medium">{booking.venues}</dd>
-              <dt className="text-muted-foreground">Date</dt>
-              <dd className="col-span-2 font-medium">{formatDate(booking.date)}</dd>
+              <dt className="text-muted-foreground">
+                {booking.endDate && booking.endDate > booking.date ? "Dates" : "Date"}
+              </dt>
+              <dd className="col-span-2 font-medium">
+                {booking.endDate && booking.endDate > booking.date
+                  ? `${formatDate(booking.date)} – ${formatDate(booking.endDate)} (${booking.days ?? 0} days)`
+                  : formatDate(booking.date)}
+              </dd>
               <dt className="text-muted-foreground">Time</dt>
               <dd className="col-span-2 font-medium">
                 {formatRange(booking.start, booking.end)}
