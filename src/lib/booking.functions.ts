@@ -58,6 +58,23 @@ export const updateBookingFn = createServerFn({ method: "POST" })
     return result as unknown as BookingResult;
   });
 
+export const checkBookingConflictsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { date: string; start: string; end: string; venueIds: string[] }) =>
+      input,
+  )
+  .handler(async ({ data, context }): Promise<{ conflicts: Conflict[] }> => {
+    const { data: result, error } = await context.supabase.rpc("find_conflicts", {
+      _venue_ids: data.venueIds,
+      _date: data.date,
+      _start: data.start,
+      _end: data.end,
+    });
+    if (error) throw new Error(error.message);
+    return { conflicts: (result ?? []) as Conflict[] };
+  });
+
 export const cancelBookingFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { bookingId: string }) => input)
