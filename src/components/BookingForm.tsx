@@ -74,6 +74,7 @@ export function BookingForm({
   const queryClient = useQueryClient();
   const create = useServerFn(createBookingFn);
   const update = useServerFn(updateBookingFn);
+  const checkConflicts = useServerFn(checkBookingConflictsFn);
 
   const [purpose, setPurpose] = useState<Purpose>(initial?.purpose ?? "GBM");
   const [date, setDate] = useState(initial?.date ?? todayISO());
