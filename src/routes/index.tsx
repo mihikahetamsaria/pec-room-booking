@@ -61,7 +61,7 @@ function LoginPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (active && data.session) navigate({ to: "/dashboard", replace: true });
     });
-    supabase.rpc("list_organizations", { _only_unclaimed: true }).then(({ data }) => {
+    supabase.rpc("list_organizations", { _only_unclaimed: false }).then(({ data }) => {
       if (active && data) setUnclaimed(data as UnclaimedOrg[]);
     });
     return () => {
