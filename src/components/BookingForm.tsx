@@ -77,10 +77,11 @@ export function BookingForm({
 
   const [purpose, setPurpose] = useState<Purpose>(initial?.purpose ?? "GBM");
   const [date, setDate] = useState(initial?.date ?? todayISO());
+  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
   const [start, setStart] = useState(initial?.start ?? "10:00");
   const [end, setEnd] = useState(initial?.end ?? "12:00");
   const [venueIds, setVenueIds] = useState<string[]>(initial?.venueIds ?? []);
-  const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [conflicts, setConflicts] = useState<DatedConflict[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState<ConfirmedBooking | null>(null);
 
