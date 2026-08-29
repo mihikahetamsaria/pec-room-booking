@@ -16,6 +16,8 @@ export type ConfirmedBooking = {
   reference: string;
   purpose: Purpose;
   date: string;
+  endDate?: string;
+  days?: number;
   start: string;
   end: string;
   venues: string;

@@ -217,7 +217,7 @@ export function BookingForm({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="date">Date</Label>
+          <Label htmlFor="date">{bookingId ? "Date" : "Start date"}</Label>
           <Input
             id="date"
             type="date"
@@ -226,6 +226,25 @@ export function BookingForm({
             required
           />
         </div>
+        {!bookingId ? (
+          <div className="space-y-2">
+            <Label htmlFor="endDate">End date (optional range)</Label>
+            <Input
+              id="endDate"
+              type="date"
+              min={date}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+            {endDate && endDate > date ? (
+              <p className="text-xs text-muted-foreground">
+                Books the same slot every day from {formatDate(date)} to{" "}
+                {formatDate(endDate)} — all days are booked, or none if any day
+                clashes.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <div className="space-y-2">
           <Label htmlFor="start">Start time</Label>
           <Input
