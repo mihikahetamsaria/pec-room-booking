@@ -16,17 +16,35 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { PURPOSES, formatRange, todayISO, type Purpose } from "@/lib/campus";
+import { PURPOSES, formatDate, formatRange, todayISO, type Purpose } from "@/lib/campus";
 import { useVenues } from "@/lib/data";
 import {
   BookingConfirmation,
   type ConfirmedBooking,
 } from "@/components/BookingConfirmation";
 import {
+  checkBookingConflictsFn,
   createBookingFn,
   updateBookingFn,
   type Conflict,
 } from "@/lib/booking.functions";
+
+const MAX_RANGE_DAYS = 31;
+
+function datesInRange(fromISO: string, toISO: string): string[] {
+  const out: string[] = [];
+  const cursor = new Date(`${fromISO}T00:00:00`);
+  const last = new Date(`${toISO}T00:00:00`);
+  while (cursor <= last) {
+    const m = `${cursor.getMonth() + 1}`.padStart(2, "0");
+    const d = `${cursor.getDate()}`.padStart(2, "0");
+    out.push(`${cursor.getFullYear()}-${m}-${d}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
+type DatedConflict = Conflict & { date?: string };
 
 export type BookingFormValues = {
   purpose: Purpose;
