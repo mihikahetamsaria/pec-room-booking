@@ -49,6 +49,7 @@ type DatedConflict = Conflict & { date?: string };
 export type BookingFormValues = {
   purpose: Purpose;
   date: string;
+  endDate?: string;
   start: string;
   end: string;
   venueIds: string[];
